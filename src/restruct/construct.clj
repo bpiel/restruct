@@ -9,7 +9,7 @@
 
 (defn mk-merge-meta
   [p default]
-  {::merge (or (some->> p meta keys (some #{:map :seq :scalar}))
+  {::merge (or (some->> p meta keys (some #{:& :map :seq :scalar}))
                (some-> p meta ::merge #{:map :seq :scalar})
                default)})
 

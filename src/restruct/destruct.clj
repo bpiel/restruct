@@ -2,6 +2,10 @@
 
 (declare destruct*)
 
+(defn merge-containers
+  [& cs]
+  (if (every? #(-> % meta ::container))
+    (apply concat)))
 
 (defn recur-merge-input
   [v context]
@@ -54,16 +58,31 @@
     (repeat (first p))
     p))
 
+(defn apply-special-kws
+  [p]
+  (let [parted (partition-by #{:com.billpiel.restruct.core/&} p)]
+    (case (count parted)
+      0 []
+      1 (first parted)
+      2 (cycle (second parted))
+      3 (concat (first parted)
+              (cycle (nth parted 2))))))
+
 (defn destruct-sequential
   [p v]
   (->> v
-       (interleave (apply-input-meta p))
+       (interleave (apply-special-kws p))
        (partition 2)
        (map (partial apply destruct*))))
 
+(defn mk-container
+  [& v]
+  (with-meta (vec v)
+    {::container true}))
+
 (defn destruct-scalar
   [p v]
-  {p v})
+  {p (mk-container v)})
 
 (defn destruct*
   [p v]
@@ -77,3 +96,46 @@
 (defn destruct
   [p v]
   (recur-merge-input (destruct* p v) {}))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
