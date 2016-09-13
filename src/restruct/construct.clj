@@ -9,9 +9,11 @@
 
 (defn mk-merge-meta
   [p default]
-  {::merge (or (some->> p meta keys (some #{:& :map :seq :scalar}))
-               (some-> p meta ::merge #{:map :seq :scalar})
-               default)})
+  (let [m (meta p)]
+    (merge {::merge (or (some->> m keys (some #{:map :seq :scalar}))
+                        (some-> m ::merge #{:map :seq :scalar})
+                        default)}
+           (select-keys m [:first :last :vec]))))
 
 (declare construct*)
 
@@ -34,12 +36,6 @@
              (map #(construct* % [v'])
                   p)))
     (mk-merge-meta p :seq)))
-
-(defn mk-merge-meta
-  [p default]
-  {::merge (or (some->> p meta keys (some #{:map :seq :scalar}))
-               (some-> p meta ::merge #{:map :seq :scalar})
-               default)})
 
 (defn f-map-keys-by
   [f p m]
@@ -64,12 +60,6 @@
     (sequential? p) (construct-sequential p v)
     :else (construct-scalar p v)))
 
-#_ (defn merge-output-map-vals
-  [& vs]
-  (fmap merge-output
-        (apply merge
-               (apply concat vs))))
-
 (defn merge-output-map-vals
   [& vs]
   (with-meta (apply concat vs)
@@ -77,16 +67,50 @@
      (-> vs first)
      :scalar)))
 
+(defn get-merge-meta
+  [v]
+  (let [m (meta v)]
+    (or (some #{:first :last :vec} (keys m))
+        (-> m ::merge #{:map :seq :scalar}))))
+
+(defn ->first
+  [[v]]
+  (if (coll? v)
+    (first v)
+    v))
+
+(defn ->last
+  [[v]]
+  (if (coll? v)
+    (last v)
+    v))
+
+(defn ->vec
+  [[v]]
+  (cond (vector? v) v
+        (coll? v) (vec v)
+        :else [v]))
+
+(defn merge-scalar
+  [v]
+  (if (-> v count (= 1))
+    (first v)
+    (with-meta (vec v)
+      {::container true})))
+
 (defn merge-output
   [v]
-  (condp = (-> v meta ::merge)
+  (condp = (get-merge-meta v)
     :map (fmap merge-output (apply merge-with
                                    merge-output-map-vals
                                    v))
     :seq (with-meta (vec (remove #{::nope}
                                  (map merge-output v)))
            (meta v))
-    :scalar (first v)
+    :first (->first v)
+    :last (->last v)
+    :vec (->vec v)
+    :scalar (merge-scalar v)
     v))
 
 (defn construct
